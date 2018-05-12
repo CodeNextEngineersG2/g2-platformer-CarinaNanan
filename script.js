@@ -110,8 +110,13 @@ function buildLevel() {
   // create platforms, monsters, and any other game objects
   // best method is to draw sprites from left to right on the screen
   createPlatform(50, 690, 5);
-  createCollectable(300, 340);
-  createMonster(500, 600, 0);
+  createCollectable(540, 470);
+  createMonster(400, 600, 0);
+  //My Level 
+  createPlatform (800,500,4);  
+  createPlatform(1550,400,2); 
+  createPlatform(2200,300,7); 
+  createPlatform(3050,500,5);
 }
 
 // Creates a player sprite and adds animations and a collider to it
@@ -180,29 +185,71 @@ function createCollectable(x, y) {
 // function calls executeLoss(). If a monster falls off the screen, it is
 // removed from the game.
 function applyGravity() {
-
+  player.velocity.y+=GRAVITY; 
+  if(player.previousPosition.y!==player.position.y){
+    playerGrounded=false; 
+  }
+  if (player.y>=height){
+    executeLoss (); 
+  }
+  for (var i=0; i<monsters.length; i++) {
+    monsters[i].velocity.y+=GRAVITY; 
+    if (monsters[i].position.y>=height){
+      monsters[i].remove(); 
+    }
+  }
 }
 
 // Called in the draw() function. Continuously checks for collisions and overlaps
 // between all relevant game objects. Depending on the collision or overlap that
 // occurs, a specific callback function is run.
 function checkCollisions() {
+  player.collide(platforms,platformCollision);
+  monsters.collide(platforms, platformCollision); 
+  player.collide (monsters, playerMonsterCollision); 
+  player.overlap(collectables,getCollectable); 
+
 
 }
 
 // Callback function that runs when the player or a monster collides with a
 // platform.
 function platformCollision(sprite, platform) {
-
+  if (sprite===player&&sprite.touching.bottom){
+    sprite.velocity.y=0; 
+    currentJumpTime=MAX_JUMP_TIME; 
+    currentJumpForce = DEFAULT_JUMP_FORCE; 
+    playerGrounded=true;
+  }
+  for (var i=0; i<monsters.length; i++) {
+    if (monsters[i]==sprite&&sprite.touching.bottom){
+      monsters[i].velocity.y=0; 
+    }
+  }
 }
 
 // Callback function that runs when the player collides with a monster.
 function playerMonsterCollision(player, monster) {
-
+  if (player.touching.bottom){
+    monster.remove (); 
+    var defeatedMonster = createSprite(monster.position.x,monster.position.y,0,0); 
+    defeatedMonster.addImage(monsterDefeatImage); 
+    defeatedMonster.mirrorX(monster.mirrorX()); 
+    defeatedMonster.scale = 0.25; 
+    defeatedMonster.life=40; 
+    currentJumpTime=MAX_JUMP_TIME; 
+    currentJumpForce; 
+    millis= new Date (); 
+    score++; 
+  }
+  else executeLoss (); 
 }
 
 // Callback function that runs when the player overlaps with a collectable.
 function getCollectable(player, collectable) {
+  collectable.remove ();
+  score++;  
+
 
 }
 
@@ -210,19 +257,30 @@ function getCollectable(player, collectable) {
 // all of the relevant "check" functions below.
 function updatePlayer() {
   //console.log("Player x: " + player.position.x + " Player y: " + player.position.y);
-
+  checkIdle();
+  checkFalling(); 
+  checkJumping();
+  checkMovingLeftRight(); 
 }
 
 // Check if the player is idle. If neither left nor right are being pressed and the
 // player is grounded, set player's animation to "idle", and change her
 // x velocity to 0.
 function checkIdle() {
+  if (!keyIsDown(LEFT_ARROW)||(RIGHT_ARROW) &&playerGrounded ==true){
+    player.changeAnimation ("idle");
+    player.velocity.x=0; 
+
+  }
 
 }
 
 // Check if the player is falling. If she is not grounded and her y velocity is
 // greater than 0, then set her animation to "fall".
 function checkFalling() {
+  if (playerGrounded==false&&player.velocity.y>0){
+    (player.changeAnimation("fall"));
+  }
 
 }
 
@@ -231,27 +289,55 @@ function checkFalling() {
 // key, which should allow her to jump higher so long as currentJumpTime is greater
 // than 0.
 function checkJumping() {
+  if (player.velocity.y<0){
+    (player.changeAnimation ("jump")); 
+    if(keyIsDown(UP_ARROW)&&currentJumpTime>0){
+      (player.velocity.y=currentJumpForce); 
+      (millis=deltaMillis); 
+      (timeElsapsed= deltaMillis-millis); 
 
+    }
+  }
 }
 
 // Check if the player is moving left or right. If so, move the player character
 // left or right according to DEFAULT_VELOCITY. Also be sure to mirror the
 // player's sprite left or right to avoid "moonwalking".
 function checkMovingLeftRight() {
-
+   if (keyIsDown(LEFT_ARROW)&&!keyIsDown(RIGHT_ARROW)){
+    player.mirrorX(-1);
+      if(playerGrounded){
+        player.changeAnimation("run");
+    player.velocity.x=-DEFAULT_VELOCITY;}
+  }
+  else if (keyIsDown(RIGHT_ARROW)&&!keyIsDown(LEFT_ARROW)){
+    player.mirrorX(1); 
+      if (playerGrounded){
+        player.changeAnimation("run"); 
+      }
+      player.velocity.x=DEFAULT_VELOCITY; 
+  }
 }
 
 // Check if the player has pressed the up arrow key. If the player is grounded
 // this should initiate the jump sequence, which can be extended by holding down
 // the up arrow key (see checkJumping() above).
 function keyPressed() {
-
+  if (keyIsDown(UP_ARROW)&&playerGrounded==true){
+    playerGrounded=false; 
+    player.velocity.y=currentJumpForce; 
+    millis=new Date(); 
+    deltaMillis=new Date (); 
+  }
 }
 
 // Check if the player has released the up arrow key. If the player's y velocity
 // is < 0 (that is, she is currently moving "up" on the canvas), then this will
 // immediately set currentJumpTime to 0, causing her to begin falling.
 function keyReleased() {
+  if (!keyIsDown&&player.y.velocity<0){
+    currentJumpTime=0; 
+  }
 
 }
 
@@ -271,9 +357,10 @@ function keyTyped() {
 function updateDisplay() {
   // clear the screen
   background(0, 0, 0);
+  camera.position.x=player.position.x; 
 
   // briefly turn camera off before setting any static images or text
-  camera.off()
+  camera.off() 
 
   // set the background image
   image(backgroundImage, 0, 0);
@@ -299,5 +386,7 @@ function executeWin() {
 // a monster). Anything can happen here, but the most important thing is that we
 // call resetGame() after a short delay.
 function executeLoss() {
+  noLoop (); 
+  setTimeout (resetGame,1000); 
 
 }
